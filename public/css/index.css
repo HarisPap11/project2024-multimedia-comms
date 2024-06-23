@@ -1,0 +1,121 @@
+:root{
+    --main-color: #77b3d4;
+    --main-color-hover: #6BA1BE;
+    --alternative-color: #CEE397;
+    --black-color: #575761;
+}
+
+.btn-info{
+    --bs-btn-bg : var(--main-color) !important;
+    --bs-btn-border-color : var(--main-color) !important;
+    --bs-btn-hover-bg : var(--main-color-hover) !important;
+    --bs-btn-active-border-color : var(--main-color-hover) !important;
+    --bs-btn-hover-border-color : var(--main-color-hover) !important;
+}
+
+.btn-secondary{
+    --bs-btn-bg : var(--black-color) !important;
+}
+
+body,h1,h2,h3,h4,h5,h6,p{
+    font-family: "Outfit", sans-serif;
+}
+
+h1,h2,h3,h4{
+    font-weight: bold;
+}
+
+
+
+#selfie-preview{
+    height: 250px;
+    max-height: 250px;
+    max-width: 250px;
+
+}
+
+/**
+ * Chat Page 
+ */
+
+.sidebar {
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 330px;
+    background-color: #f8f9fa;
+    overflow-y: auto;
+    transition: width 0.3s;
+}
+.sidebar.collapsed {
+    width: 80px;
+}
+
+.sidebar .nav-link {
+    white-space: nowrap;
+}
+
+.main-content {
+    margin-left: 340px;
+    transition: margin-left 0.3s;
+}
+.main-content.collapsed {
+    margin-left: 80px;
+}
+
+footer {
+    background-color: #f8f9fa;
+    padding: 10px;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    width: calc(100% - 330px);
+    text-align: center;
+}
+
+
+.logout-container{
+    bottom: 10px;
+    left: 0;
+}
+
+.sidebar-content{
+    min-height: 78vh;
+}
+
+button.btn.btn-secondary.video-call-btn.btn-sm {
+    position: absolute;
+    right: 16px;
+}
+
+.video-container {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+
+.video-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.local-video {
+    width: 200px;
+    height: auto;
+}
+
+.remote-video {
+    width: 400px;
+    height: auto;
+}
+
+.video-username {
+    position: absolute;
+    bottom: 5px;
+    left: 5px;
+    color: white;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 3px;
+    border-radius: 3px;
+}
