@@ -199,16 +199,15 @@ io.on("connection", socket => {
 	});
 
     
-    socket.on("endCall", data => {
-        const room = rooms.find(room => room.roomID === data.roomID);
-        if (room) {
-            const otherUsers = room.users.filter(user => user.sessionID !== data.sessionID);
-            otherUsers.forEach(user => {
-                io.to(user.socketID).emit("callEnded", { roomID: data.roomID });
-            });
-        }
+    socket.on('endCall', (data) => {
+        console.log("Received end call request for room:", data.roomID);
+        // Notify each participant to end the call
+        data.participants.forEach(participantSessionID => {
+            io.to(participantSessionID).emit('callEnded', { roomID: data.roomID });
+        });
     });
-
+    
+    
     
     socket.on('disconnect', () => {
         const user = users.find(user => user.socketID === socket.id);
