@@ -18,6 +18,13 @@ $(document).ready(() => {
     let acceptCallButton = $('#accept-call');
     let publicRoomJoinButton = $('#room-public .join-btn');
     let videoContainer = $('#video-container');
+    let endCallButton = $('#end-call');
+    let previousRoomID = null;
+
+    let tictactoeButton = $('#start-tictactoe');
+    let tictactoeModal = new bootstrap.Modal($('#tictactoeModal')[0]);
+    let acceptTictactoeButton = $('#accept-tictactoe');
+    let tictactoeFromText = $('#tictactoe-from');
 
     let state = {
         selfieDataURL: localStorage.getItem('selfieDataURL'),
@@ -29,7 +36,8 @@ $(document).ready(() => {
         rooms: [],
         peerConnection: null,
         localStream: null,
-        remoteStream: null
+        remoteStream: null,
+        iceCandidatesQueue: [] // Initialize the queue for ICE candidates
     };
 
     if (!state.sessionID || !localStorage.getItem('username')) {
@@ -70,11 +78,17 @@ $(document).ready(() => {
             updateUserList(data.users);
         });
 
+
         state.socket.on('newRoom', (data) => {
-            if (data.rooms) {
-                updateRoomList(data.rooms);
-            }
+            data.rooms.forEach(room => {
+                if (!state.rooms.some(r => r.roomID === room.roomID)) {
+                    state.rooms.push(room);
+                    addRoomToList(room);
+                }
+            });
+            console.log('Updated room list:', state.rooms);
         });
+        
 
         state.socket.on('message', (data) => {
             handleMessage(data);
@@ -100,22 +114,64 @@ $(document).ready(() => {
             handleIceCandidate(data);
         });
 
+        state.socket.on('updateUnread', (data) => {
+            const room = state.rooms.find(r => r.roomID === data.roomID);
+            if (room) {
+                room.unread = (room.unread || 0) + 1;
+                updateRoomUnreadCount(room);
+            }
+        });
+
+        state.socket.on('roomMessages', (data) => {
+            const room = state.rooms.find(r => r.roomID === data.roomID);
+            if (room) {
+                room.messages = data.messages;
+                if (data.roomID === state.currentRoomID) {
+                    chatBox.empty();
+                    room.messages.forEach(msg => {
+                        chatBox.append(`<div><strong>${msg.user}:</strong> ${msg.message}</div>`);
+                    });
+                    chatBox.scrollTop(chatBox[0].scrollHeight);
+                }
+            }
+        });
+
+        state.socket.on('callEnded', (data) => {
+            if (data.roomID === state.currentRoomID) {
+                endCall();
+            }
+        });
+
+        state.socket.on('peerDisconnected', (data) => {
+            if (data.roomID === state.currentRoomID) {
+                alert('The other user has disconnected. The call will end.');
+                endCall();
+            }
+        });
+
         // Ensure the public room is initialized and joined on page load
         state.socket.emit('joinRoom', { user: username, roomID: 'public', sessionID: sessionID });
         joinRoom({ roomID: 'public', roomName: 'Public Room', messages: [], unread: 0 });
     }
 
     function sendMessage() {
-        const message = messageInput.val();
-        messageInput.val('');
-        state.socket.emit('message', { message: message, user: localStorage.getItem('username'), roomID: state.currentRoomID });
+        const message = messageInput.val().trim();
+        if (message !== "") {
+            state.socket.emit('message', {
+                message: message,
+                user: localStorage.getItem('username'),
+                roomID: state.currentRoomID,
+                sessionID: state.sessionID
+            });
+            messageInput.val('');
+        }
     }
+
 
     function handleMessage(data) {
         console.log('Message received:', data);
         let room = state.rooms.find(r => r.roomID === data.roomID);
         if (!room) {
-            // If the room doesn't exist in state, create a new one
             room = {
                 roomID: data.roomID,
                 roomName: data.roomID === 'public' ? 'Public Room' : data.roomName || 'New Room',
@@ -125,18 +181,21 @@ $(document).ready(() => {
             state.rooms.push(room);
             addRoomToList(room);
         }
-
+    
         room.messages.push({ user: data.user, message: data.message });
-
+    
         if (data.roomID === state.currentRoomID) {
             chatBox.append(`<div><strong>${data.user}:</strong> ${data.message}</div>`);
             chatBox.scrollTop(chatBox[0].scrollHeight);
-        } else {
-            room.unread = (room.unread || 0) + 1;
+            room.unread = 0; // Reset unread count if the user is in the room
+            updateRoomUnreadCount(room);
+        } else if (data.user !== localStorage.getItem('username')) {
+            room.unread++;
             updateRoomUnreadCount(room);
         }
     }
-
+    
+    
     function updateRoomUnreadCount(room) {
         const roomElement = $(`#room-${room.roomID}`);
         let unreadBadge = roomElement.find('.unread-badge');
@@ -146,6 +205,7 @@ $(document).ready(() => {
         }
         unreadBadge.text(room.unread).toggle(room.unread > 0);
     }
+    
 
     function updateUserList(userList) {
         const currentUsername = localStorage.getItem('username');
@@ -255,52 +315,6 @@ $(document).ready(() => {
         }
     }
 
-    function joinRoom(room) {
-        console.log(`Joining room: ${room.roomName}`);
-        state.currentRoomID = room.roomID;
-        state.currentRoomName = room.roomName;
-        chatTitle.text(state.currentRoomName);
-        chatBox.empty();
-
-        room.unread = 0;
-        updateRoomUnreadCount(room);
-
-        state.rooms.forEach((r) => {
-            const roomElement = $(`#room-${r.roomID}`);
-            const joinButton = roomElement.find('.join-btn');
-            if (joinButton.length) {
-                joinButton.toggle(r.roomID !== state.currentRoomID);
-            }
-        });
-
-        room.messages.forEach(msg => {
-            chatBox.append(`<div><strong>${msg.user}:</strong> ${msg.message}</div>`);
-        });
-        chatBox.scrollTop(chatBox[0].scrollHeight);
-
-        state.socket.emit('joinRoom', { user: localStorage.getItem('username'), roomID: state.currentRoomID, sessionID: state.sessionID });
-
-        // Toggle public room join button visibility
-        const publicRoomElement = $('#room-public');
-        if (publicRoomElement.length) {
-            const publicJoinButton = publicRoomElement.find('.join-btn');
-            if (publicJoinButton.length) {
-                publicJoinButton.toggle(state.currentRoomID !== 'public');
-            }
-        }
-
-        if (room.roomID === 'public') {
-            publicRoomJoinButton.hide();
-            videoCallButton.addClass('d-none');
-        } else {
-            videoCallButton.removeClass('d-none');
-            videoCallButton.off('click').on('click', () => {
-                console.log(`Video Call button clicked in room: ${room.roomName}`);
-                inviteToVideoCall(room);
-            });
-        }
-    }
-
     roomsList.on('click', '.join-btn', (e) => {
         const roomElement = $(e.target).closest('li');
         const roomID = roomElement.attr('id').split('-')[1];
@@ -366,31 +380,71 @@ $(document).ready(() => {
     }
 
     function handleOffer(data) {
+        console.log('Received offer:', data);
         if (state.peerConnection) {
             state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer)).then(() => {
+                if (state.iceCandidatesQueue) {
+                    state.iceCandidatesQueue.forEach(candidate => {
+                        state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => console.error('Error adding queued ice candidate:', error));
+                    });
+                    state.iceCandidatesQueue = [];
+                }
                 return state.peerConnection.createAnswer();
             }).then(answer => {
                 return state.peerConnection.setLocalDescription(answer);
             }).then(() => {
                 state.socket.emit('answer', {
                     answer: state.peerConnection.localDescription,
-                    roomID: data.roomID
+                    roomID: data.roomID,
+                    to: data.from
                 });
-            });
+            }).then(() => {
+                // Set the remote username on receiving an offer
+                const targetUser = state.users.find(user => user.sessionID === data.from);
+                if (targetUser) {
+                    $('#remote-username').text(targetUser.name);
+                }
+            }).catch(error => console.error('Error handling offer:', error));
         }
     }
 
     function handleAnswer(data) {
+        console.log('Received answer:', data);
         if (state.peerConnection) {
-            state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer)).then(() => {
+                if (state.iceCandidatesQueue) {
+                    state.iceCandidatesQueue.forEach(candidate => {
+                        state.peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(error => console.error('Error adding queued ice candidate:', error));
+                    });
+                    state.iceCandidatesQueue = [];
+                }
+            }).then(() => {
+                // Set the remote username on receiving an answer
+                const targetUser = state.users.find(user => user.sessionID === data.from);
+                if (targetUser) {
+                    $('#remote-username').text(targetUser.name);
+                }
+            }).catch(error => console.error('Error handling answer:', error));
         }
     }
 
     function handleIceCandidate(data) {
+        console.log('Received ICE candidate:', data);
         if (state.peerConnection) {
-            state.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            if (state.peerConnection.remoteDescription && state.peerConnection.remoteDescription.type) {
+                state.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate)).catch(error => console.error('Error adding received ice candidate:', error));
+            } else {
+                if (!state.iceCandidatesQueue) {
+                    state.iceCandidatesQueue = [];
+                }
+                state.iceCandidatesQueue.push(data.candidate);
+            }
         }
     }
+
+    endCallButton.on('click', () => {
+        endCall();
+    });
 
     function startVideoCall(roomID) {
         console.log(`Starting video call in room: ${roomID}`);
@@ -420,7 +474,8 @@ $(document).ready(() => {
                 if (event.candidate) {
                     state.socket.emit('iceCandidate', {
                         candidate: event.candidate,
-                        roomID: roomID
+                        roomID: roomID,
+                        to: targetUser.name
                     });
                 }
             };
@@ -430,15 +485,47 @@ $(document).ready(() => {
             }).then(() => {
                 state.socket.emit('offer', {
                     offer: peerConnection.localDescription,
-                    roomID: roomID
+                    roomID: roomID,
+                    to: targetUser.name
                 });
-            });
+            }).catch(error => console.error('Error starting video call:', error));
 
             state.peerConnection = peerConnection; // Store the peer connection in the state
 
-            // Show the video container
+            // Show the video container and the end call button, hide the start video call button
             videoContainer.removeClass('d-none');
+            $('#start-video-call').addClass('d-none');
+            $('#end-call').removeClass('d-none');
         }).catch(error => console.error('Error accessing media devices.', error));
+    }
+
+    function endCall() {
+        if (state.peerConnection) {
+            state.peerConnection.close();
+            state.peerConnection = null;
+
+            if (state.localStream) {
+                state.localStream.getTracks().forEach(track => track.stop());
+                state.localStream = null;
+            }
+
+            if (state.remoteStream) {
+                state.remoteStream.getTracks().forEach(track => track.stop());
+                state.remoteStream = null;
+            }
+
+            $('#local-video')[0].srcObject = null;
+            $('#remote-video')[0].srcObject = null;
+
+            // Hide the video container and the end call button, show the start video call button
+            videoContainer.addClass('d-none');
+            $('#start-video-call').removeClass('d-none');
+            $('#end-call').addClass('d-none');
+
+            state.socket.emit('endCall', {
+                roomID: state.currentRoomID
+            });
+        }
     }
 
     function handleEndCall(data) {
@@ -461,6 +548,204 @@ $(document).ready(() => {
 
             // Hide the video container
             videoContainer.addClass('d-none');
+        }
+    }
+
+    function inviteToTicTacToe(room) {
+        const currentUsername = localStorage.getItem('username');
+        const targetUser = room.users.find(user => user.sessionID !== state.sessionID);
+        console.log('Current User:', currentUsername);
+        console.log('Target User:', targetUser);
+
+        if (targetUser && targetUser.name) {
+            console.log(`Inviting ${targetUser.name} to play Tic Tac Toe`);
+            state.socket.emit('tictactoeInvite', {
+                from: currentUsername,
+                to: targetUser.name,
+                targetSessionID: targetUser.sessionID,
+                roomID: room.roomID
+            });
+        } else {
+            console.log('Target user not found or has no name for Tic Tac Toe invite');
+        }
+    }
+
+    function handleTicTacToeInvite(data) {
+        if (callFromText) {
+            console.log(`Received Tic Tac Toe invite from ${data.from}`);
+            callFromText.text(`Tic Tac Toe invite from ${data.from}`);
+            acceptTictactoeButton.off('click').on('click', () => acceptTicTacToe(data.from, data.roomID));
+            tictactoeModal.show();
+        } else {
+            console.error('callFromText element not found');
+        }
+    }
+
+    function acceptTicTacToe(from, roomID) {
+        tictactoeModal.hide();
+        state.socket.emit('tictactoeAccept', {
+            from: localStorage.getItem('username'),
+            to: from,
+            roomID: roomID
+        });
+        const room = state.rooms.find(r => r.roomID === roomID);
+        if (room) {
+            joinRoom(room); // Redirect to private room with title
+        } else {
+            joinRoom({ roomID: roomID, roomName: 'Private Room', messages: [], unread: 0 });
+        }
+        startTicTacToe(roomID);
+    }
+
+    function handleTicTacToeAccept(data) {
+        console.log(`Tic Tac Toe accepted by ${data.from}`);
+        const room = state.rooms.find(r => r.roomID === data.roomID);
+        if (room) {
+            joinRoom(room); // Redirect to private room with title
+        } else {
+            joinRoom({ roomID: data.roomID, roomName: 'Private Room', messages: [], unread: 0 });
+        }
+        startTicTacToe(data.roomID);
+    }
+
+    // Function to start the Tic Tac Toe game using WebRTC DataChannels
+    function startTicTacToe(roomID) {
+        console.log(`Starting Tic Tac Toe in room: ${roomID}`);
+        const currentUsername = localStorage.getItem('username');
+        const targetUser = state.users.find(user => user.sessionID !== state.sessionID);
+
+        const peerConnection = new RTCPeerConnection();
+
+        const dataChannel = peerConnection.createDataChannel('tictactoe');
+
+        dataChannel.onopen = () => {
+            console.log('Data channel is open');
+        };
+
+        dataChannel.onmessage = (event) => {
+            console.log('Data channel message:', event.data);
+            handleTicTacToeMessage(event.data);
+        };
+
+        peerConnection.ondatachannel = (event) => {
+            event.channel.onopen = () => {
+                console.log('Data channel is open');
+            };
+            event.channel.onmessage = (event) => {
+                console.log('Data channel message:', event.data);
+                handleTicTacToeMessage(event.data);
+            };
+        };
+
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                state.socket.emit('iceCandidate', {
+                    candidate: event.candidate,
+                    roomID: roomID
+                });
+            }
+        };
+
+        peerConnection.createOffer().then(offer => {
+            return peerConnection.setLocalDescription(offer);
+        }).then(() => {
+            state.socket.emit('offer', {
+                offer: peerConnection.localDescription,
+                roomID: roomID
+            });
+        });
+
+        state.peerConnection = peerConnection;
+        state.dataChannel = dataChannel;
+    }
+
+    function handleTicTacToeMessage(data) {
+        const message = JSON.parse(data);
+        if (message.type === 'move') {
+            // Handle Tic Tac Toe move
+            updateTicTacToeBoard(message.move);
+        }
+    }
+
+    function updateTicTacToeBoard(move) {
+        // Update the Tic Tac Toe board with the new move
+        console.log('Tic Tac Toe move:', move);
+    }
+
+    tictactoeButton.on('click', () => {
+        const room = state.rooms.find(r => r.roomID === state.currentRoomID);
+        inviteToTicTacToe(room);
+    });
+
+    state.socket.on('tictactoeInvite', (data) => {
+        handleTicTacToeInvite(data);
+    });
+
+    state.socket.on('tictactoeAccept', (data) => {
+        handleTicTacToeAccept(data);
+    });
+
+    function joinRoom(room) {
+        console.log(`Joining room: ${room.roomName}`);
+
+        // Reset unread count for the previous room if any
+        if (previousRoomID) {
+            const previousRoom = state.rooms.find(r => r.roomID === previousRoomID);
+            if (previousRoom) {
+                previousRoom.unread = 0;
+                updateRoomUnreadCount(previousRoom);
+            }
+        }
+
+        state.currentRoomID = room.roomID;
+        state.currentRoomName = room.roomName;
+        previousRoomID = room.roomID;
+
+        chatTitle.text(state.currentRoomName);
+        chatBox.empty();
+
+        room.unread = 0; // Reset unread count when joining the room
+        updateRoomUnreadCount(room);
+
+        state.rooms.forEach((r) => {
+            const roomElement = $(`#room-${r.roomID}`);
+            const joinButton = roomElement.find('.join-btn');
+            if (joinButton.length) {
+                joinButton.toggle(r.roomID !== state.currentRoomID);
+            }
+        });
+
+        room.messages.forEach(msg => {
+            chatBox.append(`<div><strong>${msg.user}:</strong> ${msg.message}</div>`);
+        });
+        chatBox.scrollTop(chatBox[0].scrollHeight);
+
+        state.socket.emit('joinRoom', { user: localStorage.getItem('username'), roomID: state.currentRoomID, sessionID: state.sessionID });
+
+        // Toggle public room join button visibility
+        const publicRoomElement = $('#room-public');
+        if (publicRoomElement.length) {
+            const publicJoinButton = publicRoomElement.find('.join-btn');
+            if (publicJoinButton.length) {
+                publicJoinButton.toggle(state.currentRoomID !== 'public');
+            }
+        }
+
+        if (room.roomID === 'public') {
+            publicRoomJoinButton.hide();
+            videoCallButton.addClass('d-none');
+            tictactoeButton.addClass('d-none');
+        } else {
+            videoCallButton.removeClass('d-none');
+            tictactoeButton.removeClass('d-none');
+            videoCallButton.off('click').on('click', () => {
+                console.log(`Video Call button clicked in room: ${room.roomName}`);
+                inviteToVideoCall(room);
+            });
+            tictactoeButton.off('click').on('click', () => {
+                console.log(`Tic Tac Toe button clicked in room: ${room.roomName}`);
+                inviteToTicTacToe(room);
+            });
         }
     }
 });
