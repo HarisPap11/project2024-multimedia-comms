@@ -1,33 +1,43 @@
-:root{
+:root {
     --main-color: #77b3d4;
     --main-color-hover: #6BA1BE;
     --alternative-color: #CEE397;
     --black-color: #575761;
 }
 
-.btn-info{
-    --bs-btn-bg : var(--main-color) !important;
-    --bs-btn-border-color : var(--main-color) !important;
-    --bs-btn-hover-bg : var(--main-color-hover) !important;
-    --bs-btn-active-border-color : var(--main-color-hover) !important;
-    --bs-btn-hover-border-color : var(--main-color-hover) !important;
+.btn-info {
+    --bs-btn-bg: var(--main-color) !important;
+    --bs-btn-border-color: var(--main-color) !important;
+    --bs-btn-hover-bg: var(--main-color-hover) !important;
+    --bs-btn-active-border-color: var(--main-color-hover) !important;
+    --bs-btn-hover-border-color: var(--main-color-hover) !important;
 }
 
-.btn-secondary{
-    --bs-btn-bg : var(--black-color) !important;
+.btn-secondary {
+    --bs-btn-bg: var(--black-color) !important;
 }
 
-body,h1,h2,h3,h4,h5,h6,p{
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
     font-family: "Outfit", sans-serif;
 }
 
-h1,h2,h3,h4{
+h1,
+h2,
+h3,
+h4 {
     font-weight: bold;
 }
 
 
 
-#selfie-preview{
+#selfie-preview {
     height: 250px;
     max-height: 250px;
     max-width: 250px;
@@ -48,6 +58,7 @@ h1,h2,h3,h4{
     overflow-y: auto;
     transition: width 0.3s;
 }
+
 .sidebar.collapsed {
     width: 80px;
 }
@@ -60,6 +71,7 @@ h1,h2,h3,h4{
     margin-left: 340px;
     transition: margin-left 0.3s;
 }
+
 .main-content.collapsed {
     margin-left: 80px;
 }
@@ -75,7 +87,7 @@ footer {
 }
 
 
-.logout-container{
+.logout-container {
     bottom: 10px;
     left: 0;
 }
@@ -96,7 +108,8 @@ button.btn.btn-secondary.video-call-btn.btn-sm {
     margin: 0px 10px;
 }
 
-.local-video, .remote-video{
+.local-video,
+.remote-video {
     width: 100%;
     height: auto;
     aspect-ratio: 4/3;
@@ -111,7 +124,7 @@ div#video-container {
     justify-content: center;
 }
 
-@media (max-width: 728px){
+@media (max-width: 728px) {
     .video-wrapper {
         width: 100%;
         margin: 10px 0 0 0;

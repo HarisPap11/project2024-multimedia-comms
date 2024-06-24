@@ -44,6 +44,17 @@ $(document).ready(() => {
         window.location.href = 'login.html';
     }
 
+
+    $('#reject-call').on('click', () => {
+        state.socket.emit('rejectCall', {
+            callerSessionID: state.callerSessionID, // Store callerSessionID when initiating the call
+            roomID: state.currentRoomID
+        });
+    });
+    
+
+    
+
     initSocketIo(localStorage.getItem('username'), state.sessionID);
 
     function initSocketIo(username, sessionID) {
@@ -137,14 +148,11 @@ $(document).ready(() => {
         });
 
         state.socket.on('callEnded', (data) => {
-            if (data.roomID === state.currentRoomID) {
-                endCall();
-            }
+            handleEndCall(data);
         });
 
         state.socket.on('peerDisconnected', (data) => {
             if (data.roomID === state.currentRoomID) {
-                alert('The other user has disconnected. The call will end.');
                 endCall();
             }
         });
@@ -167,7 +175,6 @@ $(document).ready(() => {
         }
     }
 
-
     function handleMessage(data) {
         console.log('Message received:', data);
         let room = state.rooms.find(r => r.roomID === data.roomID);
@@ -188,14 +195,15 @@ $(document).ready(() => {
             chatBox.append(`<div><strong>${data.user}:</strong> ${data.message}</div>`);
             chatBox.scrollTop(chatBox[0].scrollHeight);
             room.unread = 0; // Reset unread count if the user is in the room
-            updateRoomUnreadCount(room);
-        } else if (data.user !== localStorage.getItem('username')) {
+        } else {
             room.unread++;
-            updateRoomUnreadCount(room);
         }
+        updateRoomUnreadCount(room);
     }
     
     
+    
+
     function updateRoomUnreadCount(room) {
         const roomElement = $(`#room-${room.roomID}`);
         let unreadBadge = roomElement.find('.unread-badge');
@@ -206,7 +214,10 @@ $(document).ready(() => {
         unreadBadge.text(room.unread).toggle(room.unread > 0);
     }
     
+    
+    
 
+    
     function updateUserList(userList) {
         const currentUsername = localStorage.getItem('username');
         state.users = userList;
@@ -302,6 +313,7 @@ $(document).ready(() => {
         }
     });
 
+
     function addRoomToList(room) {
         console.log(`Adding room to list: ${room.roomName}`);
         if ($(`#room-${room.roomID}`).length === 0) {
@@ -314,6 +326,9 @@ $(document).ready(() => {
             roomsList.append(listItem);
         }
     }
+    
+    
+    
 
     roomsList.on('click', '.join-btn', (e) => {
         const roomElement = $(e.target).closest('li');
@@ -322,24 +337,28 @@ $(document).ready(() => {
         joinRoom(room);
     });
 
-    function inviteToVideoCall(room) {
-        const currentUsername = localStorage.getItem('username');
-        const targetUser = room.users.find(user => user.sessionID !== state.sessionID);
-        console.log('Current User:', currentUsername);
-        console.log('Target User:', targetUser);
 
-        if (targetUser && targetUser.name) {
-            console.log(`Inviting ${targetUser.name} to a video call`);
-            state.socket.emit('videoCallInvite', {
-                from: currentUsername,
-                to: targetUser.name, // Ensure targetUser.name is correctly passed
-                targetSessionID: targetUser.sessionID,
-                roomID: room.roomID
-            });
-        } else {
-            console.log('Target user not found or has no name for video call invite');
-        }
+function inviteToVideoCall(room) {
+    const currentUsername = localStorage.getItem('username');
+    const targetUser = room.users.find(user => user.sessionID !== state.sessionID);
+    console.log('Current User:', currentUsername);
+    console.log('Target User:', targetUser);
+
+    if (targetUser && targetUser.sessionID) {
+        state.callerSessionID = state.sessionID; // Store caller's session ID
+        console.log(`Inviting ${targetUser.name} to a video call`);
+        state.socket.emit('videoCallInvite', {
+            from: currentUsername,
+            to: targetUser.name,
+            targetSessionID: targetUser.sessionID,
+            roomID: room.roomID
+        });
+    } else {
+        console.log('Target user not found or has no name for video call invite');
     }
+}
+
+    
 
     function handleVideoCallInvite(data) {
         if (callFromText) {
@@ -442,10 +461,6 @@ $(document).ready(() => {
         }
     }
 
-    endCallButton.on('click', () => {
-        endCall();
-    });
-
     function startVideoCall(roomID) {
         console.log(`Starting video call in room: ${roomID}`);
         const localVideo = $('#local-video')[0];
@@ -499,57 +514,87 @@ $(document).ready(() => {
         }).catch(error => console.error('Error accessing media devices.', error));
     }
 
+
+
+    state.socket.on('callRejected', (data) => {
+        if (data.roomID === state.currentRoomID) {
+            alert("The other user has rejected the call.");
+        }
+    });
+
+
+
+    endCallButton.on('click', () => {
+        endCall();
+        state.socket.emit('endCall', {
+            roomID: state.currentRoomID,
+            sessionID: state.sessionID
+        });
+    });
+
     function endCall() {
         if (state.peerConnection) {
             state.peerConnection.close();
             state.peerConnection = null;
-
+    
             if (state.localStream) {
                 state.localStream.getTracks().forEach(track => track.stop());
                 state.localStream = null;
             }
-
+    
             if (state.remoteStream) {
                 state.remoteStream.getTracks().forEach(track => track.stop());
                 state.remoteStream = null;
             }
-
+    
             $('#local-video')[0].srcObject = null;
             $('#remote-video')[0].srcObject = null;
-
+    
             // Hide the video container and the end call button, show the start video call button
             videoContainer.addClass('d-none');
             $('#start-video-call').removeClass('d-none');
             $('#end-call').addClass('d-none');
-
-            state.socket.emit('endCall', {
-                roomID: state.currentRoomID
-            });
         }
     }
+    
+ 
+    state.socket.on('callEnded', (data) => {
+        if (data.roomID === state.currentRoomID) {
+            alert('The other user has ended the call.');
+            endCall();
+        }
+    });
 
+    
+    
     function handleEndCall(data) {
-        if (state.peerConnection) {
-            state.peerConnection.close();
-            state.peerConnection = null;
-
-            if (state.localStream) {
-                state.localStream.getTracks().forEach(track => track.stop());
-                state.localStream = null;
+        if (data.roomID === state.currentRoomID) {
+            if (state.peerConnection) {
+                state.peerConnection.close();
+                state.peerConnection = null;
+    
+                if (state.localStream) {
+                    state.localStream.getTracks().forEach(track => track.stop());
+                    state.localStream = null;
+                }
+    
+                if (state.remoteStream) {
+                    state.remoteStream.getTracks().forEach(track => track.stop());
+                    state.remoteStream = null;
+                }
+    
+                $('#local-video')[0].srcObject = null;
+                $('#remote-video')[0].srcObject = null;
+    
+                // Hide the video container and the end call button, show the start video call button
+                videoContainer.addClass('d-none');
+                $('#start-video-call').removeClass('d-none');
+                $('#end-call').addClass('d-none');
             }
-
-            if (state.remoteStream) {
-                state.remoteStream.getTracks().forEach(track => track.stop());
-                state.remoteStream = null;
-            }
-
-            $('#local-video')[0].srcObject = null;
-            $('#remote-video')[0].srcObject = null;
-
-            // Hide the video container
-            videoContainer.addClass('d-none');
         }
     }
+    
+    
 
     function inviteToTicTacToe(room) {
         const currentUsername = localStorage.getItem('username');
@@ -685,28 +730,26 @@ $(document).ready(() => {
         handleTicTacToeAccept(data);
     });
 
+
+
+    
     function joinRoom(room) {
         console.log(`Joining room: ${room.roomName}`);
-
-        // Reset unread count for the previous room if any
-        if (previousRoomID) {
-            const previousRoom = state.rooms.find(r => r.roomID === previousRoomID);
-            if (previousRoom) {
-                previousRoom.unread = 0;
-                updateRoomUnreadCount(previousRoom);
-            }
-        }
-
+    
         state.currentRoomID = room.roomID;
         state.currentRoomName = room.roomName;
-        previousRoomID = room.roomID;
-
+    
         chatTitle.text(state.currentRoomName);
         chatBox.empty();
-
+    
+        room.messages.forEach(msg => {
+            chatBox.append(`<div><strong>${msg.user}:</strong> ${msg.message}</div>`);
+        });
+        chatBox.scrollTop(chatBox[0].scrollHeight);
+    
         room.unread = 0; // Reset unread count when joining the room
         updateRoomUnreadCount(room);
-
+    
         state.rooms.forEach((r) => {
             const roomElement = $(`#room-${r.roomID}`);
             const joinButton = roomElement.find('.join-btn');
@@ -714,14 +757,9 @@ $(document).ready(() => {
                 joinButton.toggle(r.roomID !== state.currentRoomID);
             }
         });
-
-        room.messages.forEach(msg => {
-            chatBox.append(`<div><strong>${msg.user}:</strong> ${msg.message}</div>`);
-        });
-        chatBox.scrollTop(chatBox[0].scrollHeight);
-
+    
         state.socket.emit('joinRoom', { user: localStorage.getItem('username'), roomID: state.currentRoomID, sessionID: state.sessionID });
-
+    
         // Toggle public room join button visibility
         const publicRoomElement = $('#room-public');
         if (publicRoomElement.length) {
@@ -730,7 +768,7 @@ $(document).ready(() => {
                 publicJoinButton.toggle(state.currentRoomID !== 'public');
             }
         }
-
+    
         if (room.roomID === 'public') {
             publicRoomJoinButton.hide();
             videoCallButton.addClass('d-none');
@@ -748,4 +786,7 @@ $(document).ready(() => {
             });
         }
     }
+    
+
+    
 });

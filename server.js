@@ -198,16 +198,18 @@ io.on("connection", socket => {
 		}
 	});
 
-	socket.on("endCall", data => {
-		const room = rooms.find(room => room.roomID === data.roomID);
-		if (room) {
-			const otherUsers = room.users.filter(user => user.socketID !== socket.id);
-			otherUsers.forEach(user => {
-				io.to(user.socketID).emit("callEnded", { roomID: data.roomID });
-			});
-		}
-	});
+    
+    socket.on("endCall", data => {
+        const room = rooms.find(room => room.roomID === data.roomID);
+        if (room) {
+            const otherUsers = room.users.filter(user => user.sessionID !== data.sessionID);
+            otherUsers.forEach(user => {
+                io.to(user.socketID).emit("callEnded", { roomID: data.roomID });
+            });
+        }
+    });
 
+    
     socket.on('disconnect', () => {
         const user = users.find(user => user.socketID === socket.id);
         if (user) {
