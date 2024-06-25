@@ -1,20 +1,20 @@
 :root {
-    --main-color: #77b3d4;
-    --main-color-hover: #6BA1BE;
-    --alternative-color: #CEE397;
-    --black-color: #575761;
+	--main-color: #77b3d4;
+	--main-color-hover: #6ba1be;
+	--alternative-color: #cee397;
+	--black-color: #575761;
 }
 
 .btn-info {
-    --bs-btn-bg: var(--main-color) !important;
-    --bs-btn-border-color: var(--main-color) !important;
-    --bs-btn-hover-bg: var(--main-color-hover) !important;
-    --bs-btn-active-border-color: var(--main-color-hover) !important;
-    --bs-btn-hover-border-color: var(--main-color-hover) !important;
+	--bs-btn-bg: var(--main-color) !important;
+	--bs-btn-border-color: var(--main-color) !important;
+	--bs-btn-hover-bg: var(--main-color-hover) !important;
+	--bs-btn-active-border-color: var(--main-color-hover) !important;
+	--bs-btn-hover-border-color: var(--main-color-hover) !important;
 }
 
 .btn-secondary {
-    --bs-btn-bg: var(--black-color) !important;
+	--bs-btn-bg: var(--black-color) !important;
 }
 
 body,
@@ -25,23 +25,20 @@ h4,
 h5,
 h6,
 p {
-    font-family: "Outfit", sans-serif;
+	font-family: "Outfit", sans-serif;
 }
 
 h1,
 h2,
 h3,
 h4 {
-    font-weight: bold;
+	font-weight: bold;
 }
 
-
-
 #selfie-preview {
-    height: 250px;
-    max-height: 250px;
-    max-width: 250px;
-
+	height: 250px;
+	max-height: 250px;
+	max-width: 250px;
 }
 
 /**
@@ -49,133 +46,136 @@ h4 {
  */
 
 .sidebar {
-    height: 100vh;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 330px;
-    background-color: #f8f9fa;
-    overflow-y: auto;
-    transition: width 0.3s;
+	height: 100vh;
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 330px;
+	background-color: #f8f9fa;
+	overflow-y: auto;
+	transition: width 0.3s;
 }
 
 .sidebar.collapsed {
-    width: 80px;
+	width: 80px;
 }
 
 .sidebar .nav-link {
-    white-space: nowrap;
+	white-space: nowrap;
 }
 
 .main-content {
-    margin-left: 340px;
-    transition: margin-left 0.3s;
+	margin-left: 340px;
+	transition: margin-left 0.3s;
 }
 
 .main-content.collapsed {
-    margin-left: 80px;
+	margin-left: 80px;
 }
 
 footer {
-    background-color: #f8f9fa;
-    padding: 10px;
-    position: fixed;
-    bottom: 0;
-    right: 0;
-    width: calc(100% - 330px);
-    text-align: center;
+	background-color: #f8f9fa;
+	padding: 10px;
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	width: calc(100% - 330px);
+	text-align: center;
 }
 
-
 .logout-container {
-    bottom: 10px;
-    left: 0;
+	bottom: 10px;
+	left: 0;
 }
 
 button.btn.btn-secondary.video-call-btn.btn-sm {
-    position: absolute;
-    right: 16px;
+	position: absolute;
+	right: 16px;
 }
 
 .video-container {
-    margin-bottom: 20px;
+	margin-bottom: 20px;
 }
 
 .video-wrapper {
-    position: relative;
-    width: 35%;
-    display: inline-block;
-    margin: 0px 10px;
+	position: relative;
+	width: 35%;
+	display: inline-block;
+	margin: 0px 10px;
 }
 
 .local-video,
 .remote-video {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 4/3;
+	width: 100%;
+	height: auto;
+	aspect-ratio: 4/3;
 }
 
-
 div#video-container {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    width: 100%;
-    justify-content: center;
+	display: flex;
+	flex-direction: row;
+	flex-wrap: wrap;
+	width: 100%;
+	justify-content: center;
 }
 
 @media (max-width: 728px) {
-    .video-wrapper {
-        width: 100%;
-        margin: 10px 0 0 0;
-    }
+	.video-wrapper {
+		width: 100%;
+		margin: 10px 0 0 0;
+	}
 }
-
-
 
 .video-username {
-    position: absolute;
-    bottom: 6px;
-    left: 0;
-    color: white;
-    background-color: rgba(0, 0, 0, 0.5);
-    padding: 5px;
-    border-radius: 0;
-    margin-bottom: 0;
-    width: 100%;
-
+	position: absolute;
+	bottom: 6px;
+	left: 0;
+	color: white;
+	background-color: rgba(0, 0, 0, 0.5);
+	padding: 5px;
+	border-radius: 0;
+	margin-bottom: 0;
+	width: 100%;
 }
 
+#rooms-list li {
+	min-height: 50px;
+}
+
+/**
+ * Tic Tac Toe
+ */
+
 #tictactoe-board {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	height: 100%;
 }
 
 .board {
-    display: grid;
-    grid-template-columns: repeat(3, 100px);
-    grid-template-rows: repeat(3, 100px);
-    gap: 5px;
+	display: grid;
+	grid-template-columns: repeat(3, 100px);
+	grid-template-rows: repeat(3, 100px);
+	gap: 5px;
 }
 
 .cell {
-    width: 100px;
-    height: 100px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 2em;
-    cursor: pointer;
-    background: #fff;
-    border: 1px solid #000;
+	width: 100px;
+	height: 100px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	font-size: 2em;
+	cursor: pointer;
+	background: #fff;
+	border: 1px solid #000;
 }
 
 .cell.x {
-    color: red;
+	color: red;
 }
 
 .cell.o {
-    color: blue;
+	color: blue;
 }

@@ -76,7 +76,7 @@ function endGame(draw) {
 
 function handleTicTacToeMessage(data) {
     const message = JSON.parse(data);
-    if (message.type === 'move') {
+    if (message.type === "move") {
         const cell = cells[message.move];
         placeMark(cell, message.class);
         if (checkWin(message.class)) {

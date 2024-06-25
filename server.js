@@ -47,12 +47,14 @@ io.on("connection", socket => {
     });
     
     
-    
+
 
 	socket.on("logout", data => {
 		users = users.filter(user => user.sessionID !== data.sessionID);
 		io.emit("updateUsers", { users: users });
 	});
+
+
 
     socket.on("createRoom", data => {
         const newRoom = {
@@ -96,7 +98,6 @@ io.on("connection", socket => {
         }
     });
     
-
     socket.on("message", data => {
         try {
             const room = rooms.find(room => room.roomID === data.roomID);
@@ -142,6 +143,7 @@ io.on("connection", socket => {
 			});
 		}
 	});
+
 
 	socket.on("tictactoeInvite", data => {
 		const targetUser = users.find(
@@ -198,15 +200,14 @@ io.on("connection", socket => {
 		}
 	});
 
-    
+
     socket.on('endCall', (data) => {
         console.log("Received end call request for room:", data.roomID);
         // Notify each participant to end the call
-        data.participants.forEach(participantSessionID => {
-            io.to(participantSessionID).emit('callEnded', { roomID: data.roomID });
+        data.participants.forEach(participantSocketID => {
+            io.to(participantSocketID).emit('callEnded', { roomID: data.roomID });
         });
     });
-    
     
     
     socket.on('disconnect', () => {

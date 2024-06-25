@@ -19,7 +19,7 @@ $(document).ready(() => {
     let publicRoomJoinButton = $("#room-public .join-btn");
     let videoContainer = $("#video-container");
     let endCallButton = $("#end-call");
-    let previousRoomID = null;
+
 
     let state = {
         selfieDataURL: localStorage.getItem("selfieDataURL"),
@@ -49,8 +49,7 @@ $(document).ready(() => {
 
     initSocketIo(localStorage.getItem("username"), state.sessionID);
 
-    // Initialize Tic Tac Toe functionality
-    initTicTacToe(state.socket, state.users, state.currentRoomID);
+
 
     function initSocketIo(username, sessionID) {
         state.socket.emit("signin", {
@@ -160,6 +159,14 @@ $(document).ready(() => {
             }
         });
 
+        state.socket.on("tictactoeInvite", data => {
+            handleTicTacToeInvite(data);
+        });
+
+        state.socket.on("tictactoeAccept", data => {
+            handleTicTacToeAccept(data);
+        });
+
         // Ensure the public room is initialized and joined on page load
         state.socket.emit("joinRoom", {
             user: username,
@@ -172,9 +179,6 @@ $(document).ready(() => {
             messages: [],
             unread: 0,
         });
-
-        // Initialize Tic Tac Toe functionality
-        initTicTacToe(state.socket, state.users, state.currentRoomID);
     }
 
     function sendMessage() {
@@ -191,7 +195,7 @@ $(document).ready(() => {
     }
 
     function handleMessage(data) {
-        console.log("Message received:", data);
+        // console.log("Message received:", data);
         let room = state.rooms.find(r => r.roomID === data.roomID);
         if (!room) {
             room = {
@@ -303,14 +307,14 @@ $(document).ready(() => {
 
         if (currentUser) appendUserToList(currentUser, true);
         otherUsers.forEach(user => appendUserToList(user));
-        console.log("Updated user list:", state.users);
+        // console.log("Updated user list:", state.users);
     }
 
     function updateRoomList(roomList) {
         state.rooms = roomList || [];
         roomsList.find("li:not(#room-public)").remove(); // Clear the room list completely except public room
         state.rooms.forEach(room => addRoomToList(room));
-        console.log("Updated room list:", state.rooms);
+        // console.log("Updated room list:", state.rooms);
 
         // Ensure the public room join button is correctly set up
         const publicRoomElement = $("#room-public");
@@ -334,8 +338,8 @@ $(document).ready(() => {
             const selectedUserId = selectedUser.val();
             const selectedUserName = selectedUser.next().text().trim();
             const roomName = roomNameInput.val().trim();
-            console.log("Selected User ID:", selectedUserId);
-            console.log("Selected User Name:", selectedUserName);
+            // console.log("Selected User ID:", selectedUserId);
+            // console.log("Selected User Name:", selectedUserName);
 
             if (roomName) {
                 const roomID = `room_${Math.random().toString(36).substring(2, 15)}`;
@@ -374,7 +378,7 @@ $(document).ready(() => {
     });
 
     function addRoomToList(room) {
-        console.log(`Adding room to list: ${room.roomName}`);
+        // console.log(`Adding room to list: ${room.roomName}`);
         if ($(`#room-${room.roomID}`).length === 0) {
             const listItem = $("<li>")
                 .addClass(
@@ -382,12 +386,10 @@ $(document).ready(() => {
                 )
                 .attr("id", `room-${room.roomID}`);
             listItem.html(
-                `<span><span class="badge bg-danger unread-badge me-2" style="display: none;">0</span>${
-                    room.roomName
-                }</span>${
-                    room.roomID !== state.currentRoomID
-                        ? '<button class="btn btn-primary btn-sm join-btn">Join</button>'
-                        : ""
+                `<span><span class="badge bg-danger unread-badge me-2" style="display: none;">0</span>${room.roomName
+                }</span>${room.roomID !== state.currentRoomID
+                    ? '<button class="btn btn-primary btn-sm join-btn">Join</button>'
+                    : ""
                 }`
             );
             const joinButton = listItem.find(".join-btn");
@@ -414,8 +416,8 @@ $(document).ready(() => {
         const targetUser = room.users.find(
             user => user.sessionID !== state.sessionID
         );
-        console.log("Current User:", currentUsername);
-        console.log("Target User:", targetUser);
+        // console.log("Current User:", currentUsername);
+        // console.log("Target User:", targetUser);
 
         if (targetUser && targetUser.sessionID) {
             state.callerSessionID = state.sessionID; // Store caller's session ID
@@ -433,7 +435,7 @@ $(document).ready(() => {
 
     function handleVideoCallInvite(data) {
         if (callFromText) {
-            console.log(`Received video call invite from ${data.from}`);
+            // console.log(`Received video call invite from ${data.from}`);
             callFromText.text(`Call from ${data.from}`);
             acceptCallButton
                 .off("click")
@@ -466,7 +468,7 @@ $(document).ready(() => {
     }
 
     function handleVideoCallAccept(data) {
-        console.log(`Video call accepted by ${data.from}`);
+        // console.log(`Video call accepted by ${data.from}`);
         const room = state.rooms.find(r => r.roomID === data.roomID);
         if (room) {
             joinRoom(room); // Redirect to private room with title
@@ -481,72 +483,135 @@ $(document).ready(() => {
         startVideoCall(data.roomID);
     }
 
-
     function handleOffer(data) {
-        console.log("Received offer:", data);
+        // console.log("Received offer:", data);
         if (!state.peerConnection) {
             startPeerConnection(data.roomID);
         }
+
         state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer))
-            .then(() => navigator.mediaDevices.getUserMedia({ video: true, audio: true }))
+            .then(() => {
+                // console.log("Remote description set successfully. Current signalingState:", state.peerConnection.signalingState);
+                return navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            })
             .then(stream => {
                 state.localStream = stream;
                 $("#local-video")[0].srcObject = stream;
                 stream.getTracks().forEach(track => state.peerConnection.addTrack(track, stream));
-                return state.peerConnection.createAnswer();
+                // console.log("Local stream added successfully. Current signalingState:", state.peerConnection.signalingState);
+
+                const retryCreateAnswer = () => {
+                    if (state.peerConnection && state.peerConnection.signalingState === "have-remote-offer") {
+                        return state.peerConnection.createAnswer();
+                    } else {
+                        console.warn("Retrying createAnswer, current signalingState:", state.peerConnection ? state.peerConnection.signalingState : "peerConnection is null");
+                        return new Promise((resolve, reject) => setTimeout(() => {
+                            if (state.peerConnection) {
+                                retryCreateAnswer().then(resolve).catch(reject);
+                            } else {
+                                reject(new Error("PeerConnection is null"));
+                            }
+                        }, 100));
+                    }
+                };
+
+                return retryCreateAnswer();
             })
-            .then(answer => state.peerConnection.setLocalDescription(answer))
+            .then(answer => {
+                // console.log("Created answer. Current signalingState:", state.peerConnection.signalingState);
+                return state.peerConnection.setLocalDescription(answer);
+            })
             .then(() => {
                 state.socket.emit("answer", {
                     answer: state.peerConnection.localDescription,
                     roomID: data.roomID,
                     to: data.from,
                 });
+                // console.log("Answer sent successfully.");
             })
-            .catch(error => console.error("Error handling offer:", error));
+            .catch(error => {
+                console.error("Error handling offer:", error);
+            });
     }
-    
+
     function handleAnswer(data) {
-        console.log("Received answer:", data);
+        // console.log("Received answer:", data);
         if (state.peerConnection) {
             state.peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer))
-                .catch(error => console.error("Error handling answer:", error));
+                .catch(error => {
+                    console.error("Error handling answer:", error);
+                });
         }
     }
-    
+
+
+
 
     function handleIceCandidate(data) {
         console.log("Received ICE candidate:", data);
-        if (state.peerConnection) {
+        if (state.peerConnection && state.peerConnection.remoteDescription) {
             state.peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate))
-                .catch(error => console.error("Error adding received ice candidate:", error));
+                .then(() => {
+                    console.log("ICE candidate added successfully.");
+                })
+                .catch(error => {
+                    console.error("Error adding received ice candidate:", error);
+                    alert("An error occurred while adding the ICE candidate. Please try again.");
+                });
         } else {
-            console.error("PeerConnection not established yet.");
+            // Queue the candidate if remote description is not set yet
+            state.iceCandidatesQueue.push(data.candidate);
+            console.warn("Remote description not set yet, candidate queued.");
         }
     }
-    
+
+
+
+
+
     function startPeerConnection(roomID) {
-        console.log(`Starting peer connection for room: ${roomID}`);
+        // console.log(`Starting peer connection for room: ${roomID}`);
         state.peerConnection = new RTCPeerConnection();
-    
+
         state.peerConnection.ontrack = event => {
             state.remoteStream = event.streams[0];
             $("#remote-video")[0].srcObject = state.remoteStream;
+            // console.log("Remote stream received.");
         };
-    
+
         state.peerConnection.onicecandidate = event => {
             if (event.candidate) {
                 state.socket.emit("iceCandidate", {
                     candidate: event.candidate,
                     roomID: roomID,
+                    to: targetUser.name,
                 });
+                // console.log("ICE candidate sent:", event.candidate);
+            }
+        };
+
+        // Add queued ICE candidates once remote description is set
+        state.peerConnection.oniceconnectionstatechange = () => {
+            // console.log("ICE connection state change:", state.peerConnection.iceConnectionState);
+            if (state.peerConnection.remoteDescription && state.iceCandidatesQueue.length > 0) {
+                // console.log("Adding queued ICE candidates.");
+                state.iceCandidatesQueue.forEach(candidate => {
+                    state.peerConnection.addIceCandidate(candidate)
+                        .then(() => {
+                            console.log("Queued ICE candidate added successfully.");
+                        })
+                        .catch(error => {
+                            console.error("Error adding queued ice candidate:", error);
+                        });
+                });
+                state.iceCandidatesQueue = [];
             }
         };
     }
-    
+
 
     function startVideoCall(roomID) {
-        console.log(`Starting video call in room: ${roomID}`);
+        // console.log(`Starting video call in room: ${roomID}`);
         const localVideo = $("#local-video")[0];
         const remoteVideo = $("#remote-video")[0];
         const currentUsername = localStorage.getItem("username");
@@ -617,6 +682,24 @@ $(document).ready(() => {
     });
 
 
+    endCallButton.on("click", () => {
+        // console.log("End call button clicked, ending call.");
+        const room = state.rooms.find(r => r.roomID === state.currentRoomID);
+        const participants = room ? room.users.map(user => user.socketID) : [];
+
+        state.socket.emit("endCall", {
+            roomID: state.currentRoomID,
+            participants: participants
+        });
+        endCall();  // End the call locally for the user who clicked the button
+    });
+
+    state.socket.on("callEnded", data => {
+        if (data.roomID === state.currentRoomID) {
+            // console.log("Received call ended signal from server.");
+            endCall();
+        }
+    });
 
     function endCall() {
         console.log("Ending call...");
@@ -624,69 +707,26 @@ $(document).ready(() => {
             state.peerConnection.close();
             state.peerConnection = null;
         }
-    
+
         if (state.localStream) {
             state.localStream.getTracks().forEach(track => track.stop());
             state.localStream = null;
         }
-    
+
         if (state.remoteStream) {
             state.remoteStream.getTracks().forEach(track => track.stop());
             state.remoteStream = null;
         }
-    
+
         $("#local-video")[0].srcObject = null;
         $("#remote-video")[0].srcObject = null;
-    
+
         videoContainer.addClass("d-none");
         $("#start-video-call").removeClass("d-none");
         $("#end-call").addClass("d-none");
-    
+
         console.log("Call has been ended and UI elements have been reset.");
     }
-    
-    endCallButton.on("click", () => {
-        console.log("End call button clicked, ending call.");
-        endCall();  // This ends the call locally
-    
-        state.socket.emit("endCall", {
-            roomID: state.currentRoomID,
-            participants: state.rooms.find(r => r.roomID === state.currentRoomID)?.users.map(user => user.sessionID)
-        });
-    });
-    
-    state.socket.on("callEnded", data => {
-        console.log("Received call ended signal from server.");
-        if (data.roomID === state.currentRoomID) {
-            endCall();
-        }
-    });
-
-    
-    endCallButton.on("click", () => {
-        console.log("End call button clicked, ending call.");
-        endCall();  // This ends the call locally
-    
-        state.socket.emit("endCall", {
-            roomID: state.currentRoomID,
-            participants: state.rooms.find(r => r.roomID === state.currentRoomID)?.users.map(user => user.sessionID)
-        });
-    });
-    
-    state.socket.on("callEnded", data => {
-        console.log("Received call ended signal from server.");
-        if (data.roomID === state.currentRoomID) {
-            endCall();
-        }
-    });
-    
-    // Handling end call on the server side
-    state.socket.on('endCall', (data) => {
-        console.log("Received end call request for room:", data.roomID);
-        data.participants.forEach(participantSessionID => {
-            state.socket.to(participantSessionID).emit('callEnded', { roomID: data.roomID });
-        });
-    });
 
     function joinRoom(room) {
         console.log(`Joining room: ${room.roomName}`);
@@ -731,12 +771,20 @@ $(document).ready(() => {
         if (room.roomID === "public") {
             publicRoomJoinButton.hide();
             videoCallButton.addClass("d-none");
+            $("#start-tictactoe").addClass("d-none");
         } else {
             videoCallButton.removeClass("d-none");
             videoCallButton.off("click").on("click", () => {
                 console.log(`Video Call button clicked in room: ${room.roomName}`);
                 inviteToVideoCall(room);
             });
+
+            $("#start-tictactoe").removeClass("d-none");
+            $("#start-tictactoe").off("click").on("click", () => {
+                console.log(`Tic Tac Toe button clicked in room: ${room.roomName}`);
+                inviteToTicTacToe(room);
+            });
         }
     }
+
 });
